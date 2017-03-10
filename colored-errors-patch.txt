@@ -1,0 +1,97 @@
+diff --git src/acme.c src/acme.c
+index 8f91d88..32c485d 100644
+--- src/acme.c
++++ src/acme.c
+@@ -61,6 +61,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
+ #define OPTION_USE_STDOUT	"use-stdout"
+ #define OPTION_VERSION		"version"
+ #define OPTION_MSVC		"msvc"
++#define OPTION_COLOR	"color"
+ // options for "-W"
+ #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
+ #define OPTIONWNO_OLD_FOR	"no-old-for"
+@@ -138,6 +139,7 @@ static void show_help_and_exit(void)
+ //"  -W                     show warning level options\n"
+ "      --" OPTION_USE_STDOUT "       fix for 'Relaunch64' IDE (see docs)\n"
+ "      --" OPTION_MSVC "             set output error message format to that of MS Visual Studio\n"
++"      --" OPTION_COLOR "            enable colored output error messages with ANSI escape codes\n"
+ PLATFORM_OPTION_HELP
+ "  -V, --" OPTION_VERSION "          show version and exit\n");
+ 	exit(EXIT_SUCCESS);
+@@ -464,6 +466,8 @@ static const char *long_option(const char *string)
+ 	else if (strcmp(string, OPTION_MSVC) == 0)
+ 		format_msvc = TRUE;
+ 	PLATFORM_LONGOPTION_CODE
++	else if (strcmp(string, OPTION_COLOR) == 0)
++		format_color = TRUE;
+ 	else if (strcmp(string, OPTION_VERSION) == 0)
+ 		show_version(TRUE);
+ 	else
+diff --git src/global.c src/global.c
+index 807b392..39cf297 100644
+--- src/global.c
++++ src/global.c
+@@ -43,7 +43,6 @@ const char	s_pet[]		= "pet";
+ const char	s_raw[]		= "raw";
+ const char	s_scr[]		= "scr";
+ 
+-
+ // Exception messages during assembly
+ const char	exception_cannot_open_input_file[] = "Cannot open input file.";
+ const char	exception_missing_string[]	= "No string given.";
+@@ -118,6 +117,7 @@ int		pass_real_errors;	// Errors yet
+ signed long	max_errors		= MAXERRORS;	// errors before giving up
+ FILE		*msg_stream		= NULL;	// set to stdout by --use-stdout
+ int		format_msvc		= FALSE;	// actually bool, enabled by --msvc
++int		format_color		= FALSE;	// actually bool, enabled by --color
+ struct report 	*report			= NULL;
+ 
+ 
+@@ -341,7 +341,10 @@ static void throw_message(const char *message, const char *type)
+ void Throw_warning(const char *message)
+ {
+ 	PLATFORM_WARNING(message);
+-	throw_message(message, "Warning");
++	if(format_color)
++		throw_message(message, "\033[33mWarning\033[0m");
++	else
++		throw_message(message, "Warning");
+ }
+ // Output a warning if in first pass. See above.
+ void Throw_first_pass_warning(const char *message)
+@@ -359,7 +362,10 @@ void Throw_first_pass_warning(const char *message)
+ void Throw_error(const char *message)
+ {
+ 	PLATFORM_ERROR(message);
+-	throw_message(message, "Error");
++	if(format_color)
++		throw_message(message, "\033[31mError\033[0m");
++	else
++		throw_message(message, "Error");
+ 	++pass_real_errors;
+ 	if (pass_real_errors >= max_errors)
+ 		exit(ACME_finalize(EXIT_FAILURE));
+@@ -373,7 +379,10 @@ void Throw_error(const char *message)
+ void Throw_serious_error(const char *message)
+ {
+ 	PLATFORM_SERIOUS(message);
+-	throw_message(message, "Serious error");
++	if(format_color)
++		throw_message(message, "\033[1m\033[31mSerious error\033[0m");
++	else
++		throw_message(message, "Serious error");
+ 	// FIXME - exiting immediately inhibits output of macro call stack!
+ 	exit(ACME_finalize(EXIT_FAILURE));
+ }
+diff --git src/global.h src/global.h
+index 20f1ded..d9ad47c 100644
+--- src/global.h
++++ src/global.h
+@@ -72,6 +72,7 @@ extern int	pass_real_errors;	// Errors yet
+ extern signed long	max_errors;	// errors before giving up
+ extern FILE	*msg_stream;		// set to stdout by --errors_to_stdout
+ extern int	format_msvc;		// actually bool, enabled by --msvc
++extern int	format_color;		// actually bool, enabled by --color
+ 
+ // report stuff
+ #define REPORT_ASCBUFSIZE	1024
